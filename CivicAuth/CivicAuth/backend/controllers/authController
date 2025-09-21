@@ -1,0 +1,35 @@
+import { findOne, create } from "../models/User";
+import { hash, compare } from "bcryptjs";
+import { sign } from "jsonwebtoken";
+
+export async function register(req, res) {
+  const { email, password } = req.body;
+  try {
+    const exists = await findOne({ email });
+    if (exists) return res.status(400).json({ message: "Email already exists" });
+
+    const hashed = await hash(password, 10);
+    const user = await create({ email, password: hashed });
+
+    const token = sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    res.json({ token });
+  } catch (err) {
+    res.status(500).json({ message: "Registration failed" });
+  }
+}
+
+export async function login(req, res) {
+  const { email, password } = req.body;
+  try {
+    const user = await findOne({ email });
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+
+    const match = await compare(password, user.password);
+    if (!match) return res.status(400).json({ message: "Invalid credentials" });
+
+    const token = sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    res.json({ token });
+  } catch (err) {
+    res.status(500).json({ message: "Login failed" });
+  }
+}
